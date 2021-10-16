@@ -135,40 +135,21 @@ def model_testing(model, test_dataset):
     
     test_dataloader = DataLoader(test_dataset, batch_size=32)
     
-    preds, total_labels = [], []
+    preds, total_polarity = [], []
     
     model.eval()
     for idx, batch in enumerate(test_dataloader):
         
         seq = (batch['input_ids']).to(device)
         mask = (batch['attention_mask']).to(device)
-        labels = batch['labels']
+        polarity = batch['polarity']
         
-        outputs = model(input_ids=seq, attention_mask=mask, labels=None)
+        logits = model(input_ids=seq, attention_mask=mask, labels=None)
         
-        logits = outputs.logits
-        logits = torch.nn.functional.softmax(logits, dim=-1)
+        preds.extend(logits.detach().cpu().numpy())
+        total_polarity.extend(polarity)
         
-        predictions = torch.argmax(logits, dim=-1)
-        predictions = predictions.detach().cpu().numpy()
-        
-        preds.extend(predictions)
-        total_labels.extend(labels)
-        
-    cr = classification_report(total_labels, preds, output_dict=True)
-    return cr
+    
+    return preds, total_polarity
         
 
-class SNLI_Dataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels):
-        self.encodings = encodings
-        self.labels = labels
-    
-    def __getitem__(self, idx):
-        item = {key: torch.LongTensor(val[idx]) for key, val in self.encodings.items()}
-        if self.labels is not None:
-            item['labels'] = self.labels[idx]
-        return item
-    
-    def __len__(self):
-        return len(self.encodings['input_ids'])
